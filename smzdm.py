@@ -1,42 +1,83 @@
 # coding=utf-8
+
+
 import requests
-import random
-import re
-import time, datetime
-import calendar
+import time,datetime
+#import json
+#import smtplib
+#import hashlib
+#import pymysql
+#from datetime import datetime
+
+
 import pandas as pd
 
-keyword = '鞋'
-time = datetime.datetime.now()
-lasttime = time - datetime.timedelta(days=3)
-refresh_time = 10000
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'}
 
-r = requests.get('http://feed.smzdm.com', headers=headers, timeout=random.random() + random.randint(1, 2))
+keys = ['牛奶','床',]
+#获得即时数据
+def get_real_time_data():
+    c_time = int(time.time())
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, sdch',
+        'Host': 'www.smzdm.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36'
+    }
 
-title = re.findall(r'<title>(.*?)</title>', r.text)
-link = re.findall(r'<link>(.*?)</link>', r.text)
-pubDate = re.findall(r'<pubDate>(.*?)</pubDate>', r.text)
+    url = 'https://www.smzdm.com/homepage/json_more?timesort=' + str(c_time) + '&p=1'
+    r = requests.get(url=url, headers=headers)
 
-output_data, output_link = [], []
-for n in range(refresh_time):
-    for n in title:
-        if keyword in n:  # title.index(n)为编号
-            D_time, m_time, Y_time, H_time, M_time, S_time = pubDate[1][14:16], pubDate[1][17:20], pubDate[1][21:25], \
-                                                             pubDate[1][26:28], pubDate[1][29:31], pubDate[1][32:34],
-            m_time = list(calendar.month_abbr).index(m_time)
-            thistime = datetime.datetime(int(Y_time), m_time, int(D_time))
-            if lasttime < thistime:
-                output_data.append(n[9:-3])
+    # data = r.text.encode('utf-8').decode('unicode_escape')
+    data = r.text
 
-                output_link.append(link[title.index(n)][17:-3])
+    dataa = json.loads(data)
+    dataa = dataa['data']
+    data = pd.DataFrame(dataa)
+    data = data[['article_id','article_title','article_price','article_date','article_link']]
+    data['time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    #存入文件
+    file = data.to_csv('D:/data_1/smzdm.csv',mode='a')
+#return data
+get_real_time_data()
 
-output = list(zip(output_data, output_link))
+N =5
+file_load = pd.read_csv('D:/data_1/smzdm.csv')
+#去重
+file_load=file_load.drop_duplicates(subset='article_id', keep='first', inplace=False)
+#改type
+file_load['time'] = pd.to_datetime(file_load['time'], errors ='coerce')
+#比较时间
+N =5
+file_load = file_load[file_load['time'] + datetime.timedelta(days=N) >datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+#查找key
 
-output = list(set(output))
-# print(output)
+result_titles=[]
+for key in keys:
+    for title in file_load['article_title']:
+        if type(title) is str:
+            if title.find(key)!= -1:
+                result_titles.append(title) 
+#从result_titles中对比之前数据
+result_title = pd.DataFrame(result_titles,columns= ['article_title'])
+#整合
+result =result_title.join(file_load.set_index('article_title'),on='article_title',how='left')
+#存入文件
+result = result.drop_duplicates(subset='article_id', keep='first', inplace=False)
+result = result[['article_title','article_id','article_price','article_date','article_link','time']]
+result.to_csv('D:/data_1/smzdm.csv')
 
 
-for n in output:
-    print(n)
+
+fila = pd.read_csv('D:/data_1/smzdm.csv' )
+print(fila)
+
+
+#每5分钟执行一次
+for n in range(24):
+    for n in range(20):      
+        print('开始运行程序')
+        get_real_time_data()
+        print('结束程序')   
+        time.sleep(300)
+    fila = pd.read_csv('D:/data_1/smzdm.csv' )
+    print(fila)
