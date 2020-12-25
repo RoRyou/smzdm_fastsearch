@@ -12,7 +12,7 @@ import time,datetime
 
 import pandas as pd
 
-
+N =5
 keys = ['牛奶','床',]
 #获得即时数据
 def get_real_time_data():
@@ -40,7 +40,7 @@ def get_real_time_data():
 #return data
 get_real_time_data()
 
-N =5
+
 file_load = pd.read_csv('D:/data_1/smzdm.csv')
 #去重
 file_load=file_load.drop_duplicates(subset='article_id', keep='first', inplace=False)
